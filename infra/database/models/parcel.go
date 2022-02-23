@@ -6,7 +6,6 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Coin ...
 type Parcel struct {
 	ID           uint32          `gorm:"primary_key;auto_increment" json:"-"`
 	Name         string          `gorm:"size:50;not null;unique" json:"name"`
