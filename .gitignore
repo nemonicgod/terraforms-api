@@ -1,0 +1,26 @@
+# DEPENDENCIES
+node_modules
+package-lock.json
+.vscode
+log
+vendor/
+tmp/
+.DS_store
+
+coverage.out
+
+# Applications
+bin/*
+bin/api
+bin/job
+bin/client
+bin/worker
+
+# Secrets
+.env
+.env.*
+.env.dev
+.env.test
+.env.stage
+.env.prod
+!.env.example

@@ -1,0 +1,131 @@
+# Use the latest 2.1 version of CircleCI pipeline process engine. See: https://circleci.com/docs/2.0/configuration-reference
+version: 2.1
+
+orbs:
+  # https://circleci.com/developer/orbs/orb/circleci/aws-ecr
+  aws-ecr: circleci/aws-ecr@6.15.0
+  # https://circleci.com/developer/orbs/orb/circleci/aws-ecs
+  aws-ecs: circleci/aws-ecs@2.2.1
+  # https://circleci.com/developer/orbs/orb/circleci/aws-cli
+  aws-cli: circleci/aws-cli@2.0.3
+
+jobs:
+  build:
+    working_directory: ~/repo
+    docker:
+      - image: circleci/golang:1.16.3
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - restore_cache:
+          keys:
+            - go-mod-v4-{{ checksum "go.sum" }}
+      - run:
+          name: Install Dependencies
+          command: go mod download
+      - save_cache:
+          key: go-mod-v4-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+      - run:
+          name: Run go test
+          command: |
+            go test -v ./...
+      - run:
+          name: Run gotestsum
+          command: |
+            mkdir -p /tmp/test-reports
+            gotestsum --junitfile /tmp/test-reports/unit-tests.xml
+      - store_test_results:
+          path: /tmp/test-reports
+  enable-aws-service:
+    executor: aws-cli/default
+    parameters:
+      service-to-enable:
+        type: string
+    steps:
+      - checkout
+      - aws-cli/setup:
+          aws-access-key-id: MACHINE_USER_AWS_ACCESS_KEY_ID
+          aws-secret-access-key: MACHINE_USER_AWS_SECRET_ACCESS_KEY
+          aws-region: AWS_REGION
+      - run: aws ecs update-service --cluster terraforms-api --service << parameters.service-to-enable >> --desired-count 1
+  disable-aws-service:
+    executor: aws-cli/default
+    parameters:
+      service-to-disable:
+        type: string
+    steps:
+      - checkout
+      - aws-cli/setup:
+          aws-access-key-id: MACHINE_USER_AWS_ACCESS_KEY_ID
+          aws-secret-access-key: MACHINE_USER_AWS_SECRET_ACCESS_KEY
+          aws-region: AWS_REGION
+      - run: aws ecs update-service --cluster terraforms-api --service << parameters.service-to-disable >> --desired-count 0
+
+workflows:
+  build_image_deploy:
+    jobs:
+      - build
+      - aws-ecr/build-and-push-image:
+          requires: 
+          - build
+          filters:
+            branches:
+              only: dev
+          repo: terraforms-api
+          tag: "$(echo $CIRCLE_SHA1 | cut -c -7)"
+          dockerfile: Dockerfile
+          path: .
+          aws-access-key-id: MACHINE_USER_AWS_ACCESS_KEY_ID
+          aws-secret-access-key: MACHINE_USER_AWS_SECRET_ACCESS_KEY
+          region: AWS_REGION
+          account-url: AWS_ECR_ACCOUNT_URL
+      - aws-ecs/deploy-service-update:
+          name: service-update-api_endpoint
+          requires:
+          - aws-ecr/build-and-push-image
+          filters:
+            branches:
+              only: dev
+          cluster-name: "terraforms-api"
+          container-image-name-updates: "container=api-container,tag=$(echo $CIRCLE_SHA1 | cut -c -7)"
+          family: "api-task"
+          service-name: "terraforms-api"
+          aws-access-key-id: MACHINE_USER_AWS_ACCESS_KEY_ID
+          aws-secret-access-key: MACHINE_USER_AWS_SECRET_ACCESS_KEY
+          aws-region: AWS_REGION
+      - aws-ecs/deploy-service-update:
+          name: service-update-client
+          requires:
+          - aws-ecr/build-and-push-image
+          filters:
+            branches:
+              only: dev
+          cluster-name: "terraforms-api"
+          container-image-name-updates: "container=client-container,tag=$(echo $CIRCLE_SHA1 | cut -c -7)"
+          container-env-var-updates: "container=client-container,name=ENABLED,value=yes,
+                                      container=client-container,name=GIT_COMMIT_SHA,value=$(echo $CIRCLE_SHA1 | cut -c -7)"
+          family: "client-task"
+          service-name: "terraforms-api"
+          aws-access-key-id: MACHINE_USER_AWS_ACCESS_KEY_ID
+          aws-secret-access-key: MACHINE_USER_AWS_SECRET_ACCESS_KEY
+          aws-region: AWS_REGION
+      - aws-ecs/deploy-service-update:
+          name: service-update-official
+          requires:
+          - aws-ecr/build-and-push-image
+          filters:
+            branches:
+              only: dev
+          cluster-name: "terraforms-api"
+          container-image-name-updates: "container=worker-container,tag=$(echo $CIRCLE_SHA1 | cut -c -7)"
+          container-env-var-updates: "container=worker-container,name=ENABLED,value=yes,
+                                      container=worker-container,name=WORKER,value=official,
+                                      container=worker-container,name=GIT_COMMIT_SHA,value=$(echo $CIRCLE_SHA1 | cut -c -7)"
+          family: "worker-task"
+          service-name: "official"
+          aws-access-key-id: MACHINE_USER_AWS_ACCESS_KEY_ID
+          aws-secret-access-key: MACHINE_USER_AWS_SECRET_ACCESS_KEY
+          aws-region: AWS_REGION

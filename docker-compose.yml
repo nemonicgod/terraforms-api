@@ -1,0 +1,111 @@
+version: "3.2"
+
+services:
+  api:
+    build:
+      dockerfile: Dockerfile.local
+      context: .
+    environment:
+      - ROLE=api
+      - REDIS=redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASS=password
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - ENVIRONMENT=local
+      - API_PORT=8000
+      - MIGRATIONS_PATH=/go/src/github.com/nemonicgod/terraforms-api/infra/database/migrations
+      - MIGRATE=yes
+      - ETH_MAINNET_INFURA_RPC_URL=https://mainnet.infura.io/v3/
+      - ETH_MAINNET_INFURA_PROJECT_ID=${ETH_MAINNET_INFURA_PROJECT_ID}
+    volumes:
+      - ./:/go/src/github.com/nemonicgod/terraforms-api
+    working_dir: /go/src/github.com/nemonicgod/terraforms-api
+    command: air -c .air.api.toml
+    depends_on:
+      - redis
+      - postgres
+    ports:
+      - "8000:8000"
+    restart: always
+
+  client:
+    build:
+      dockerfile: Dockerfile.local
+      context: .
+    environment:
+      - ROLE=client
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_ADDR=redis:6379
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASS=password
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - ENVIRONMENT=local
+      - MIGRATIONS_PATH=/go/src/github.com/nemonicgod/terraforms-api/infra/database/migrations
+      - MIGRATE=no
+      - WORKER=ammStats
+    volumes:
+      - ./:/go/src/github.com/nemonicgod/terraforms-api
+    working_dir: /go/src/github.com/nemonicgod/terraforms-api
+    command: air -c .air.client.toml
+    depends_on:
+      - redis
+      - postgres
+      - api
+    restart: always
+
+  official_worker:
+    build:
+      dockerfile: Dockerfile.local
+      context: .
+    environment:
+      - ROLE=worker
+      - REDIS_ADDR=redis:6379
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASS=password
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - ENVIRONMENT=local
+      - MIGRATIONS_PATH=/go/src/github.com/nemonicgod/terraforms-api/infra/database/migrations
+      - MIGRATE=no
+      - WORKER=official
+      - ETH_MAINNET_INFURA_RPC_URL=https://mainnet.infura.io/v3/
+      - ETH_MAINNET_INFURA_PROJECT_ID={ETH_MAINNET_INFURA_PROJECT_ID}
+    volumes:
+      - ./:/go/src/github.com/nemonicgod/terraforms-api
+    working_dir: /go/src/github.com/nemonicgod/terraforms-api
+    command: air -c .air.worker.toml
+    depends_on:
+      - redis
+      - postgres
+      - client
+    restart: always
+
+  postgres:
+    image: "postgres:latest"
+    environment:
+      - POSTGRES_PASS=password
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
+    ports:
+      - "5432:5432"
+    restart: always
+
+  redis:
+    image: "redis:latest"
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--bind", "redis", "--port", "6379"]
