@@ -18,19 +18,20 @@ type Parcel struct {
 	// Level     int `gorm:"not null;" json:"level"`
 	// Zone      string `gorm:"size:50;not null;unique" json:"zone"`
 
-	XCoordinate int `gorm:"not null;" json:"x_coordinate"`
-	YCoordinate int `gorm:"not null;" json:"y_coordinate"`
+	Seed        int `gorm:"size:32;not null;" json:"seed"`
+	XCoordinate int `gorm:"size:32;not null;" json:"x_coordinate"`
+	YCoordinate int `gorm:"size:32;not null;" json:"y_coordinate"`
 
 	StuctureSpaceX int `gorm:"not null;" json:"structure_space_x"`
 	StuctureSpaceY int `gorm:"not null;" json:"structure_space_y"`
 	StuctureSpaceZ int `gorm:"not null;" json:"structure_space_z"`
 
 	// Associations
-	Biome   Biome
-	BiomeID uint32 `gorm:"ForeignKey:biome_id;" json:"biome"`
+	Biome   Biome  `gorm:"ForeignKey:biome_id;" json:"biome"`
+	BiomeID uint32 `gorm:"size:255;not null;" json:"-"`
 
-	Zone   Zone
-	ZoneID uint32 `gorm:"ForeignKey:zone_id;" json:"zone"`
+	Zone   Zone   `gorm:"ForeignKey:zone_id;" json:"zone"`
+	ZoneID uint32 `gorm:"size:255;not null;" json:"-"`
 
 	// ZoneID uint32 `gorm:"ForeignKey:zone_id;" json:"-"`
 	// Zone   Zone
