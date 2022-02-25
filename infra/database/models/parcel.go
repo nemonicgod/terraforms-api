@@ -14,9 +14,7 @@ type Parcel struct {
 	Image        string          `gorm:"type:text" json:"image"`
 	Aspect       decimal.Decimal `gorm:"type:numeric(32,4);not null" json:"aspect"`
 
-	// Elevation int `gorm:"not null;" json:"elevation"`
-	// Level     int `gorm:"not null;" json:"level"`
-	// Zone      string `gorm:"size:50;not null;unique" json:"zone"`
+	Elevation int `gorm:"not null;" json:"elevation"`
 
 	Seed        int `gorm:"size:32;not null;" json:"seed"`
 	XCoordinate int `gorm:"size:32;not null;" json:"x_coordinate"`
@@ -33,13 +31,8 @@ type Parcel struct {
 	Zone   Zone   `gorm:"ForeignKey:zone_id;" json:"zone"`
 	ZoneID uint32 `gorm:"size:255;not null;" json:"-"`
 
-	// ZoneID uint32 `gorm:"ForeignKey:zone_id;" json:"-"`
-	// Zone   Zone
-
-	// Relations
-	// ZoneColors
-	// Characters
-	// Attributes
+	Level   Level  `gorm:"ForeignKey:zone_id;" json:"level"`
+	LevelID uint32 `gorm:"size:255;not null;" json:"-"`
 
 	CreatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"-"`
 	UpdatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"-"`
